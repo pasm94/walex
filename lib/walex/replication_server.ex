@@ -7,24 +7,36 @@ defmodule WalEx.ReplicationServer do
   alias WalEx.Postgres.Decoder
   alias WalEx.ReplicationPublisher
 
-  @publication Application.compile_env(:walex, WalEx)[:publication]
+  @publication "events"
 
   def start_link(opts) do
     # Automatically reconnect if we lose connection.
-    extra_opts = [
-      auto_reconnect: true,
-      name: __MODULE__
-    ]
+    extra_opts = [auto_reconnect: true]
 
-    Postgrex.ReplicationConnection.start_link(__MODULE__, :ok, extra_opts ++ opts)
+    opts = opts[:configs] |> Keyword.delete(:name)
+
+    Postgrex.ReplicationConnection.start_link(
+      __MODULE__,
+      :ok,
+      extra_opts ++ opts ++ [name: __MODULE__]
+    )
   end
 
   @impl true
-  def init(:ok) do
-    {:ok, _pid} = ReplicationPublisher.start_link([])
+  def init(opts) do
+
+
+    # WalEx.get_configs(:my_name) |> IO.inspect()
+    # name = opts |> Keyword.get(:configs) |> Keyword.get(:name)
+
+    # {:ok, _pid} = ReplicationPublisher.start_link([])
     {:ok, %{step: :disconnected}}
   end
 
+  # {
+  #   Events,
+  #   configs: get_configs(Events, configs), name: {:via, Events, name}
+  # }
   @impl true
   def handle_connect(state) do
     temp_slot = "walex_temp_slot_" <> Integer.to_string(:rand.uniform(9_999))

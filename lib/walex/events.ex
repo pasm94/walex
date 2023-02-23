@@ -1,10 +1,11 @@
 defmodule WalEx.Events do
   use GenServer
 
-  def start_link(process_event) do
-    GenServer.start_link(__MODULE__, process_event, name: __MODULE__)
+  def start_link(opts) do
+    GenServer.start_link(__MODULE__, opts)
   end
 
+  # DEIXAR POR ÚLTIMO POR CAUSA DAS CALLBACKS
   def process(txn) do
     GenServer.call(__MODULE__, {:process, txn}, :infinity)
   end

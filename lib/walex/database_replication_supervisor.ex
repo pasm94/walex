@@ -1,13 +1,20 @@
 defmodule WalEx.DatabaseReplicationSupervisor do
   use Supervisor
 
-  def start_link(config) do
-    Supervisor.start_link(__MODULE__, config, name: __MODULE__)
+  alias WalEx.ReplicationServer
+
+  def start_link(opts) do
+    Supervisor.start_link(__MODULE__, opts)
   end
 
   @impl true
-  def init(config) do
-    children = [{WalEx.ReplicationServer, config}]
+  def init(opts) do
+    children = [
+      {
+        ReplicationServer,
+        configs: Keyword.get(opts, :configs), name: {:via, ReplicationServer, __MODULE__}
+      }
+    ]
 
     Supervisor.init(children, strategy: :one_for_all)
   end

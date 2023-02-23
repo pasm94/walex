@@ -1,44 +1,82 @@
 defmodule WalEx.Supervisor do
   use Supervisor
 
-  @config Application.compile_env(:walex, WalEx)
+  alias WalEx.Configs, as: WalExConfigs
+  alias WalEx.DatabaseReplicationSupervisor
+  alias WalEx.Events
 
-  def child_spec(config) do
+  def child_spec(opts) do
     %{
       id: __MODULE__,
-      start: {__MODULE__, :start_link, [config]}
+      start: {__MODULE__, :start_link, [opts]}
     }
   end
 
-  def start_link(config) do
-    Supervisor.start_link(__MODULE__, config, name: __MODULE__)
+  def start_link(opts) do
+    name = Keyword.get(opts, :name)
+
+    Supervisor.start_link(__MODULE__, configs: opts, name: name)
   end
 
+  # Supervisor trees
+  # ----------------
+  # 1)
+  # WalEx.Supervisor
+  # - WalEx.DatabaseReplicationSupervisor
+  #   - WalEx.ReplicationServer
+  #     - WalEx.ReplicationPublisher
+
+  # 2)
+  # WalEx.Supervisor
+  # - WalEx.Events
+
   @impl true
-  def init(_) do
-    config_from_url = if has_url?(), do: parse_url(@config[:url])
+  def init(opts) do
+    configs = Keyword.get(opts, :configs)
 
     children = [
       {
-        WalEx.DatabaseReplicationSupervisor,
-        hostname: @config[:hostname] || config_from_url[:hostname],
-        username: @config[:username] || config_from_url[:username],
-        password: @config[:password] || config_from_url[:password],
-        port: @config[:port] || config_from_url[:port],
-        database: @config[:database] || config_from_url[:database],
-        subscriptions: @config[:subscriptions],
-        publication: @config[:publication]
+        WalExConfigs,
+        configs: configs, name: {:via, WalExConfigs, __MODULE__}
       },
       {
-        WalEx.Events,
-        module: @config[:modules]
+        DatabaseReplicationSupervisor,
+        configs: get_configs(DatabaseReplicationSupervisor, configs),
+        name: {:via, DatabaseReplicationSupervisor, __MODULE__}
+      },
+      {
+        Events,
+        configs: get_configs(Events, configs), name: {:via, Events, __MODULE__}
       }
     ]
 
     Supervisor.init(children, strategy: :one_for_one)
   end
 
-  defp has_url?, do: is_bitstring(@config[:url]) and @config[:url] != ""
+  defp get_configs(DatabaseReplicationSupervisor, configs) do
+    db_configs_from_url =
+      configs
+      |> Keyword.get(:url, "")
+      |> parse_url()
+
+    [
+      hostname: Keyword.get(configs, :hostname, db_configs_from_url[:hostname]),
+      username: Keyword.get(configs, :username, db_configs_from_url[:username]),
+      password: Keyword.get(configs, :password, db_configs_from_url[:password]),
+      port: Keyword.get(configs, :port, db_configs_from_url[:port]),
+      database: Keyword.get(configs, :database, db_configs_from_url[:database]),
+      subscriptions: Keyword.get(configs, :subscriptions),
+      publication: Keyword.get(configs, :publication),
+      name: Keyword.get(configs, :name)
+    ]
+  end
+
+  defp get_configs(Events, configs) do
+    [
+      module: configs[:modules],
+      name: configs[:name]
+    ]
+  end
 
   defp parse_url(""), do: []
 
