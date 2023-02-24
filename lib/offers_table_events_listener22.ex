@@ -1,4 +1,4 @@
-defmodule NLInventoryManagement.Offers.OffersTableEventsListener do
+defmodule NLInventoryManagement.Offers.OffersTableEventsListener22 do
   @moduledoc """
   Proccess events from offers table.
   """
@@ -6,7 +6,7 @@ defmodule NLInventoryManagement.Offers.OffersTableEventsListener do
   @behaviour WalEx.Event
 
   def process(_txn) do
-    IO.puts("CHEGOU change do NL DEV")
+    IO.puts("CHEGOU change do NL test")
     :ok
   end
 end

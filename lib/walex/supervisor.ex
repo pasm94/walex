@@ -1,7 +1,7 @@
 defmodule WalEx.Supervisor do
   use Supervisor
 
-  alias WalEx.Configs, as: WalExConfigs
+  # alias WalEx.Configs, as: WalExConfigs
   alias WalEx.DatabaseReplicationSupervisor
   alias WalEx.Events
 
@@ -15,41 +15,42 @@ defmodule WalEx.Supervisor do
   def start_link(opts) do
     name = Keyword.get(opts, :name)
 
-    Supervisor.start_link(__MODULE__, configs: opts, name: name)
+    Registry.start_link(keys: :unique, name: :walex_registry)
+
+    Supervisor.start_link(__MODULE__, configs: opts, name: {:via, __MODULE__, name})
   end
-
-  # Supervisor trees
-  # ----------------
-  # 1)
-  # WalEx.Supervisor
-  # - WalEx.DatabaseReplicationSupervisor
-  #   - WalEx.ReplicationServer
-  #     - WalEx.ReplicationPublisher
-
-  # 2)
-  # WalEx.Supervisor
-  # - WalEx.Events
 
   @impl true
   def init(opts) do
     configs = Keyword.get(opts, :configs)
 
+    # pg_configs = get_configs(DatabaseReplicationSupervisor, configs)
+    # events_configs = get_configs(Events, configs)
+
     children = [
-      {
-        WalExConfigs,
-        configs: configs, name: {:via, WalExConfigs, __MODULE__}
-      },
+      # {
+      #   WalExConfigs,
+      #   configs: pg_configs ++ events_configs,
+      #   name: {:via, Registry, {:walex_registry, {WalExConfigs, configs[:name]}}}
+      # },
       {
         DatabaseReplicationSupervisor,
         configs: get_configs(DatabaseReplicationSupervisor, configs),
         name: {:via, DatabaseReplicationSupervisor, __MODULE__}
-      },
-      {
-        Events,
-        configs: get_configs(Events, configs), name: {:via, Events, __MODULE__}
       }
     ]
 
+    event =
+      case Process.whereis(Events) do
+        nil ->
+          [{Events, get_configs(Events, configs)}]
+
+        _pid ->
+          Events.set_state(get_configs(Events, configs))
+          []
+      end
+
+    children = children ++ event
     Supervisor.init(children, strategy: :one_for_one)
   end
 
@@ -72,10 +73,7 @@ defmodule WalEx.Supervisor do
   end
 
   defp get_configs(Events, configs) do
-    [
-      module: configs[:modules],
-      name: configs[:name]
-    ]
+    [module: configs[:modules]]
   end
 
   defp parse_url(""), do: []

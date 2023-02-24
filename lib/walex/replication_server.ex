@@ -13,30 +13,26 @@ defmodule WalEx.ReplicationServer do
     # Automatically reconnect if we lose connection.
     extra_opts = [auto_reconnect: true]
 
-    opts = opts[:configs] |> Keyword.delete(:name)
+    name = opts[:configs][:name]
+
+    opts = opts[:configs]
 
     Postgrex.ReplicationConnection.start_link(
       __MODULE__,
-      :ok,
-      extra_opts ++ opts ++ [name: __MODULE__]
+      [other: name],
+      extra_opts ++ opts ++ [name: {:via, Registry, {:walex_registry, {__MODULE__, name}}}]
     )
   end
 
   @impl true
-  def init(opts) do
+  def init(data) do
+    if is_nil(Process.whereis(ReplicationPublisher)) do
+      {:ok, _pid} = ReplicationPublisher.start_link([])
+    end
 
-
-    # WalEx.get_configs(:my_name) |> IO.inspect()
-    # name = opts |> Keyword.get(:configs) |> Keyword.get(:name)
-
-    # {:ok, _pid} = ReplicationPublisher.start_link([])
-    {:ok, %{step: :disconnected}}
+    {:ok, %{step: :disconnected, data: data}}
   end
 
-  # {
-  #   Events,
-  #   configs: get_configs(Events, configs), name: {:via, Events, name}
-  # }
   @impl true
   def handle_connect(state) do
     temp_slot = "walex_temp_slot_" <> Integer.to_string(:rand.uniform(9_999))
@@ -58,10 +54,12 @@ defmodule WalEx.ReplicationServer do
 
   @impl true
   # https://www.postgresql.org/docs/14/protocol-replication.html
-  def handle_data(<<?w, _wal_start::64, _wal_end::64, _clock::64, rest::binary>>, state) do
-    message = Decoder.decode_message(rest)
+  def handle_data(<<?w, wal_start::64, wal_end::64, clock::64, rest::binary>>, state) do
+    IO.inspect(state)
 
-    ReplicationPublisher.process_message(message)
+    rest
+    |> Decoder.decode_message()
+    |> ReplicationPublisher.process_message()
 
     {:noreply, state}
   end

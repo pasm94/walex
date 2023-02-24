@@ -1,6 +1,3 @@
-# This file steals liberally from https://github.com/supabase/realtime,
-# which in turn draws on https://github.com/cainophile/cainophile
-
 defmodule WalEx.ReplicationPublisher do
   @moduledoc """
   Publishes messages from Replication to Events

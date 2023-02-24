@@ -1,11 +1,10 @@
 defmodule WalEx.Events do
   use GenServer
 
-  def start_link(opts) do
-    GenServer.start_link(__MODULE__, opts)
+  def start_link(process_event) do
+    GenServer.start_link(__MODULE__, process_event, name: __MODULE__)
   end
 
-  # DEIXAR POR ÚLTIMO POR CAUSA DAS CALLBACKS
   def process(txn) do
     GenServer.call(__MODULE__, {:process, txn}, :infinity)
   end
@@ -13,6 +12,18 @@ defmodule WalEx.Events do
   @impl true
   def init(state) do
     {:ok, state}
+  end
+
+  def set_state(new_state) do
+    GenServer.call(__MODULE__, {:set_state, new_state})
+  end
+
+  # Callbacks
+
+  def handle_call({:set_state, new_state}, _from, state) do
+    new_state = [module: Keyword.get(state, :module) ++ Keyword.get(new_state, :module)]
+
+    {:reply, new_state, new_state}
   end
 
   @impl true
