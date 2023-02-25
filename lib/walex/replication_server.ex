@@ -7,30 +7,29 @@ defmodule WalEx.ReplicationServer do
   alias WalEx.Postgres.Decoder
   alias WalEx.ReplicationPublisher
 
-  @publication "events"
+  @database_configs_keys [:hostname, :username, :password, :port, :database]
 
   def start_link(opts) do
-    # Automatically reconnect if we lose connection.
+    app_name = Keyword.get(opts, :app_name)
+
     extra_opts = [auto_reconnect: true]
+    database_configs = WalEx.Configs.get_configs(app_name, @database_configs_keys)
+    replications_name = [name: WalEx.Registry.set_name(:set_gen_server, __MODULE__, app_name)]
 
-    name = opts[:configs][:name]
+    opts = extra_opts ++ database_configs ++ replications_name
 
-    opts = opts[:configs]
-
-    Postgrex.ReplicationConnection.start_link(
-      __MODULE__,
-      [other: name],
-      extra_opts ++ opts ++ [name: {:via, Registry, {:walex_registry, {__MODULE__, name}}}]
-    )
+    Postgrex.ReplicationConnection.start_link(__MODULE__, [app_name: app_name], opts)
   end
 
   @impl true
-  def init(data) do
+  def init(opts) do
+    app_name = Keyword.get(opts, :app_name)
+
     if is_nil(Process.whereis(ReplicationPublisher)) do
       {:ok, _pid} = ReplicationPublisher.start_link([])
     end
 
-    {:ok, %{step: :disconnected, data: data}}
+    {:ok, %{step: :disconnected, app_name: app_name}}
   end
 
   @impl true
@@ -46,20 +45,23 @@ defmodule WalEx.ReplicationServer do
   def handle_result([%Postgrex.Result{rows: rows} | _results], %{step: :create_slot} = state) do
     slot_name = rows |> hd |> hd
 
+    publication =
+      state.app_name
+      |> WalEx.Configs.get_configs([:publication])
+      |> Keyword.get(:publication)
+
     query =
-      "START_REPLICATION SLOT #{slot_name} LOGICAL 0/0 (proto_version '1', publication_names '#{@publication}')"
+      "START_REPLICATION SLOT #{slot_name} LOGICAL 0/0 (proto_version '1', publication_names '#{publication}')"
 
     {:stream, query, [], %{state | step: :streaming}}
   end
 
   @impl true
   # https://www.postgresql.org/docs/14/protocol-replication.html
-  def handle_data(<<?w, wal_start::64, wal_end::64, clock::64, rest::binary>>, state) do
-    IO.inspect(state)
-
+  def handle_data(<<?w, _wal_start::64, _wal_end::64, _clock::64, rest::binary>>, state) do
     rest
     |> Decoder.decode_message()
-    |> ReplicationPublisher.process_message()
+    |> ReplicationPublisher.process_message(state.app_name)
 
     {:noreply, state}
   end
@@ -75,5 +77,5 @@ defmodule WalEx.ReplicationServer do
   end
 
   @epoch DateTime.to_unix(~U[2000-01-01 00:00:00Z], :microsecond)
-  defp current_time(), do: System.os_time(:microsecond) - @epoch
+  defp current_time, do: System.os_time(:microsecond) - @epoch
 end

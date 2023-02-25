@@ -32,25 +32,22 @@ defmodule WalEx.Postgres.Decoder do
     )
   end
 
-  require Logger
-
   @pg_epoch DateTime.from_iso8601("2000-01-01T00:00:00Z")
 
-  alias Messages.{
-    Begin,
-    Commit,
-    Origin,
-    Relation,
-    Relation.Column,
-    Insert,
-    Update,
-    Delete,
-    Truncate,
-    Type,
-    Unsupported
-  }
-
+  alias Messages.Begin
+  alias Messages.Commit
+  alias Messages.Delete
+  alias Messages.Insert
+  alias Messages.Origin
+  alias Messages.Relation
+  alias Messages.Relation.Column
+  alias Messages.Truncate
+  alias Messages.Type
+  alias Messages.Unsupported
+  alias Messages.Update
   alias WalEx.Postgres.OidDatabase
+
+  require Logger
 
   @doc """
   Parses logical replication messages from Postgres
