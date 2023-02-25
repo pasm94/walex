@@ -2,6 +2,7 @@
 # which in turn draws on https://github.com/cainophile/cainophile
 
 defmodule WalEx.TransactionFilter do
+  alias Hex.API.Key
   alias WalEx.Changes.Transaction
 
   require Logger
@@ -147,7 +148,10 @@ defmodule WalEx.TransactionFilter do
   def has_tables?(_tables, _txn, _app_name), do: false
 
   defp subscribes?(change, app_name) do
-    subscriptions = WalEx.Configs.get_configs(app_name, [:subscripions])
+    subscriptions =
+      app_name
+      |> WalEx.Configs.get_configs([:subscriptions])
+      |> Keyword.get(:subscriptions)
 
     String.to_atom(change.table) in subscriptions
   end
