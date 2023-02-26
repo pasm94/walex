@@ -38,8 +38,7 @@ defmodule WalEx.ReplicationPublisher do
   @impl true
   def handle_cast(
         %{
-          message: %Messages.Begin{final_lsn: final_lsn, commit_timestamp: commit_timestamp},
-          app_name: _app_name
+          message: %Messages.Begin{final_lsn: final_lsn, commit_timestamp: commit_timestamp}
         },
         state
       ) do
@@ -68,14 +67,14 @@ defmodule WalEx.ReplicationPublisher do
   end
 
   @impl true
-  def handle_cast(%{message: %Messages.Type{} = msg, app_name: _app_name}, state) do
+  def handle_cast(%{message: %Messages.Type{} = msg}, state) do
     updated_state = %{state | types: Map.put(state.types, msg.id, msg.name)}
 
     {:noreply, updated_state}
   end
 
   @impl true
-  def handle_cast(%{message: %Messages.Relation{} = msg, app_name: _app_name}, state) do
+  def handle_cast(%{message: %Messages.Relation{} = msg}, state) do
     updated_columns =
       Enum.map(msg.columns, fn message ->
         if Map.has_key?(state.types, message.type) do
@@ -93,10 +92,7 @@ defmodule WalEx.ReplicationPublisher do
 
   @impl true
   def handle_cast(
-        %{
-          message: %Messages.Insert{relation_id: relation_id, tuple_data: tuple_data},
-          app_name: _app_name
-        },
+        %{message: %Messages.Insert{relation_id: relation_id, tuple_data: tuple_data}},
         %State{
           transaction: {lsn, %{commit_timestamp: commit_timestamp, changes: changes} = txn},
           relations: relations
@@ -135,8 +131,7 @@ defmodule WalEx.ReplicationPublisher do
             relation_id: relation_id,
             old_tuple_data: old_tuple_data,
             tuple_data: tuple_data
-          },
-          app_name: _app_name
+          }
         },
         %State{
           relations: relations,
@@ -178,8 +173,7 @@ defmodule WalEx.ReplicationPublisher do
             relation_id: relation_id,
             old_tuple_data: old_tuple_data,
             changed_key_tuple_data: changed_key_tuple_data
-          },
-          app_name: _app_name
+          }
         },
         %State{
           relations: relations,
@@ -214,10 +208,7 @@ defmodule WalEx.ReplicationPublisher do
 
   @impl true
   def handle_cast(
-        %{
-          message: %Messages.Truncate{truncated_relations: truncated_relations},
-          app_name: _app_name
-        },
+        %{message: %Messages.Truncate{truncated_relations: truncated_relations}},
         %State{
           relations: relations,
           transaction: {lsn, %{commit_timestamp: commit_timestamp, changes: changes} = txn}
@@ -250,7 +241,7 @@ defmodule WalEx.ReplicationPublisher do
   end
 
   @impl true
-  def handle_cast(%{message: _message, app_name: _app_name}, state) do
+  def handle_cast(%{message: _message}, state) do
     :noop
 
     {:noreply, state}

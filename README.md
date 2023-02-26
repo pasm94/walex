@@ -107,7 +107,7 @@ Config:
 ```elixir
 # config.exs
 
-config :walex, WalEx,
+config :walex, ExampleApp,
   hostname: "localhost",
   username: "postgres",
   password: "postgres",
@@ -123,7 +123,7 @@ It is also possible to just define the URL configuration for the database
 ```elixir
 # config.exs
 
-config :walex, WalEx,
+config :walex, ExampleApp,
   url: "postgres://username:password@hostname:port/database"
   publication: "events",
   subscriptions: [:user_account, :todo],
@@ -139,7 +139,7 @@ defmodule ExampleApp.Application do
   def start(_type, _args) do
     # List all child processes to be supervised
     children = [
-      WalEx.Supervisor
+      {WalEx.Supervisor, Application.get_env(:walex, ExampleApp)}
     ]
 
     opts = [strategy: :one_for_one, name: ExampleApp.Supervisor]
@@ -159,17 +159,17 @@ defmodule ExampleApp.UserAccountEvent do
   def process(txn) do
     cond do
       insert_event?(:user_account, txn) ->
-        {:ok, user_account} = event(:user_account, txn)
+        {:ok, user_account} = event(:user_account, txn, ExampleApp)
         IO.inspect(user_account_insert_event: user_account)
         # do something with user_account data
 
       update_event?(:user_account, txn) ->
-        {:ok, user_account} = event(:user_account, txn)
+        {:ok, user_account} = event(:user_account, txn, ExampleApp)
         IO.inspect(user_account_update_event: user_account)
 
       # you can also specify the relation
       delete_event?("public.user_account", txn) ->
-        {:ok, user_account} = event(:user_account, txn)
+        {:ok, user_account} = event(:user_account, txn, ExampleApp)
         IO.inspect(user_account_delete_event: user_account)
 
       true ->
