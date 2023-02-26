@@ -2,7 +2,6 @@
 # which in turn draws on https://github.com/cainophile/cainophile
 
 defmodule WalEx.TransactionFilter do
-  alias Hex.API.Key
   alias WalEx.Changes.Transaction
 
   require Logger

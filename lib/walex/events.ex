@@ -14,21 +14,8 @@ defmodule WalEx.Events do
     {:ok, %{}}
   end
 
-  # def set_state(new_state) do
-  #   GenServer.call(__MODULE__, {:set_state, new_state})
-  # end
-
-  # # Callbacks
-
-  # def handle_call({:set_state, new_state}, _from, state) do
-  #   new_state = [module: Keyword.get(state, :module) ++ Keyword.get(new_state, :module)]
-
-  #   {:reply, new_state, new_state}
-  # end
-
   @impl true
   def handle_call({:process, txn, server}, _from, state) do
-    # get server modules and process transaction
     server
     |> WalEx.Configs.get_configs([:modules])
     |> process_events(txn)
